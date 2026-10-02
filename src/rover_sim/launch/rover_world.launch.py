@@ -1,7 +1,8 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -13,8 +14,12 @@ def generate_launch_description():
     rover_sim = get_package_share_directory('rover_sim')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-    world = os.path.join(tb3_gazebo, 'worlds', 'turtlebot3_world.world')
+    gui = LaunchConfiguration('gui')
+    world = os.path.join(rover_sim, 'worlds', 'rover_world.world')
     sdf = os.path.join(rover_sim, 'models', 'turtlebot3_waffle', 'model.sdf')
+
+    gui_arg = DeclareLaunchArgument(
+        'gui', default_value='true', description='Show the Gazebo window')
 
     gzserver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -23,7 +28,8 @@ def generate_launch_description():
 
     gzclient = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(gazebo_ros, 'launch', 'gzclient.launch.py')))
+            os.path.join(gazebo_ros, 'launch', 'gzclient.launch.py')),
+        condition=IfCondition(gui))
 
     robot_state_publisher = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -38,4 +44,5 @@ def generate_launch_description():
                    '-timeout', '120'],
         output='screen')
 
-    return LaunchDescription([gzserver, gzclient, robot_state_publisher, spawn])
+    return LaunchDescription(
+        [gui_arg, gzserver, gzclient, robot_state_publisher, spawn])

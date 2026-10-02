@@ -16,6 +16,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', files('launch/*.py')),
         ('share/' + package_name + '/worlds', files('worlds/*')),
+        ('share/' + package_name + '/params', files('params/*.yaml')),
         ('share/' + package_name + '/models/turtlebot3_waffle', files('models/turtlebot3_waffle/*')),
     ],
     install_requires=['setuptools'],
