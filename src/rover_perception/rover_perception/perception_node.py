@@ -17,11 +17,11 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 class PerceptionNode(Node):
     def __init__(self):
         super().__init__('perception_node')
-        self.declare_parameter('detector', 'color')   # 'color' or 'yolo'
-        self.declare_parameter('model', 'yolov8n.pt')
+        self.declare_parameter('detector', 'color')  # 'color' | 'yolo' | 'yolo_world'
+        self.declare_parameter('model', 'yolov8n.pt')  # for yolo; for yolo_world use e.g. yolov8s-world.pt
         self.declare_parameter('conf', 0.25)
         self.declare_parameter('imgsz', 640)
-        self.declare_parameter('classes', '')         # e.g. "person,fire hydrant"; empty = any
+        self.declare_parameter('classes', '')  # e.g. "fire hydrant,person"; empty = any (YOLO) / required for World
         self.declare_parameter('min_area', 300)
         self.declare_parameter('depth_min', 0.1)
         self.declare_parameter('depth_max', 8.0)
@@ -33,14 +33,27 @@ class PerceptionNode(Node):
                         str(self.get_parameter('classes').value).split(',') if c.strip()]
         self.bridge = CvBridge()
         self.K = None
-        self.others = []          # every YOLO detection this frame, for the debug image
+        self.others = []  # every detection this frame, for the debug image
 
         if self.detector == 'yolo':
-            from ultralytics import YOLO   # imported lazily so colour mode stays light
+            from ultralytics import YOLO
             self.model = YOLO(self.get_parameter('model').value)
             self.get_logger().info(
                 f'YOLO loaded ({self.get_parameter("model").value}), '
                 f'conf={self.conf}, classes={self.classes or "any"}')
+
+        elif self.detector == 'yolo_world':
+            from ultralytics import YOLOWorld
+            # Recommended on this laptop: yolov8s-world.pt  (or yolov8s-worldv2.pt)
+            model_name = self.get_parameter('model').value
+            if 'world' not in model_name.lower():
+                model_name = 'yolov8s-world.pt'  # sensible default
+            self.model = YOLOWorld(model_name)
+            if self.classes:
+                self.model.set_classes(self.classes)
+            self.get_logger().info(
+                f'YOLO-World loaded ({model_name}), '
+                f'conf={self.conf}, classes={self.classes or "(none set — will detect nothing useful)"}')
 
         self.create_subscription(
             CameraInfo, '/camera/camera_info', self.on_info, qos_profile_sensor_data)
@@ -79,6 +92,7 @@ class PerceptionNode(Node):
         return x, y, w, h, 'red_object', 1.0, mask
 
     def detect_yolo(self, bgr):
+        """Works for both closed-set YOLO and open-vocabulary YOLO-World."""
         res = self.model.predict(bgr, imgsz=self.imgsz, conf=self.conf,
                                  device='cpu', verbose=False)[0]
         H, W = bgr.shape[:2]
@@ -91,7 +105,9 @@ class PerceptionNode(Node):
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(W - 1, x2), min(H - 1, y2)
             self.others.append((x1, y1, x2, y2, name, conf))
-            if self.classes and name not in self.classes:
+            # For normal YOLO we still honour the classes filter.
+            # For YOLO-World the model already only looks for the classes we set.
+            if self.detector == 'yolo' and self.classes and name not in self.classes:
                 continue
             if best is None or conf > best[5]:
                 best = (x1, y1, x2 - x1, y2 - y1, name, conf, None)
@@ -123,7 +139,10 @@ class PerceptionNode(Node):
         debug = bgr.copy()
 
         t1 = time.perf_counter()
-        det = self.detect_yolo(bgr) if self.detector == 'yolo' else self.detect_color(bgr)
+        if self.detector in ('yolo', 'yolo_world'):
+            det = self.detect_yolo(bgr)
+        else:
+            det = self.detect_color(bgr)
         detect_ms = (time.perf_counter() - t1) * 1000.0
 
         for (x1, y1, x2, y2, name, conf) in self.others:   # everything YOLO saw, thin yellow
