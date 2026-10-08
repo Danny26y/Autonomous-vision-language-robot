@@ -49,13 +49,13 @@ Real terminal output from the autonomous run that produced the demo video.
 pixel position, the back-projected 3D position in the camera frame, and per-frame
 latency.
 
-![Perception log](docs/perception_log.png)
+![Perception log](docs/images/detection.png)
 
 **Mission** — the target confirmed from five detections, the stand-off goal sent to
 Nav2, `distance remaining` falling towards zero, and `arrived: mission complete`.
 No coordinate was typed in by hand.
 
-![Mission log](docs/mission_log.png)
+![Mission log](docs/images/mission_log.png)
 
 ## Why "vision-language"
 
