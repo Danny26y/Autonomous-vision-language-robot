@@ -55,7 +55,7 @@ latency.
 Nav2, `distance remaining` falling towards zero, and `arrived: mission complete`.
 No coordinate was typed in by hand.
 
-![Mission log](docs/images/mission_log.png)
+![Mission log](docs/images/Mission_log.png)
 
 ## Why "vision-language"
 
